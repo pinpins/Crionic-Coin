@@ -336,6 +336,8 @@ void CAddrMan::Attempt_(const CService& addr, bool fCountFailure, int64_t nTime)
 
 CAddrInfo CAddrMan::Select_(bool newOnly)
 {
+    int nRetries = 0;
+
     if (size() == 0)
         return CAddrInfo();
 
@@ -347,7 +349,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
        (nTried > 0 && (nNew == 0 || RandomInt(2) == 0))) { 
         // use a tried node
         double fChanceFactor = 1.0;
-        while (1) {
+        while (nRetries++ < ADDRMAN_TRIED_BUCKET_COUNT) {
             int nKBucket = RandomInt(ADDRMAN_TRIED_BUCKET_COUNT);
             int nKBucketPos = RandomInt(ADDRMAN_BUCKET_SIZE);
             while (vvTried[nKBucket][nKBucketPos] == -1) {
@@ -360,11 +362,12 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
             if (RandomInt(1 << 30) < fChanceFactor * info.GetChance() * (1 << 30))
                 return info;
             fChanceFactor *= 1.2;
+            MilliSleep(100);
         }
     } else {
         // use a new node
         double fChanceFactor = 1.0;
-        while (1) {
+       while (nRetries++ < ADDRMAN_NEW_BUCKET_COUNT) {
             int nUBucket = RandomInt(ADDRMAN_NEW_BUCKET_COUNT);
             int nUBucketPos = RandomInt(ADDRMAN_BUCKET_SIZE);
             while (vvNew[nUBucket][nUBucketPos] == -1) {
@@ -377,8 +380,11 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
             if (RandomInt(1 << 30) < fChanceFactor * info.GetChance() * (1 << 30))
                 return info;
             fChanceFactor *= 1.2;
+            MilliSleep(100);
         }
     }
+
+    return CAddrInfo();
 }
 
 #ifdef DEBUG_ADDRMAN
